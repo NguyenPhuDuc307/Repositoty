@@ -1,15 +1,13 @@
 using BilliardManagement.Data;
 using BilliardManagement.Data.Entities;
+using Microsoft.EntityFrameworkCore.Storage; // For handling transactions
 
 namespace BilliardManagement.Repositories
 {
-    /// <summary>
-    /// Implements the Unit of Work pattern to manage multiple repository operations.
-    /// </summary>
     public class UnitOfWork : IDisposable
     {
         private readonly ApplicationDbContext _dbContext;
-
+        private IDbContextTransaction? _transaction;
         public IRepository<Club> _clubRepository { get; }
         public IRepository<Branch> _branchRepository { get; }
         public IRepository<Table> _tableRepository { get; }
@@ -17,15 +15,9 @@ namespace BilliardManagement.Repositories
 
         private bool _disposed = false;
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="UnitOfWork"/> class.
-        /// </summary>
-        /// <param name="dbContext">The database context to use.</param>
         public UnitOfWork(ApplicationDbContext dbContext)
         {
             _dbContext = dbContext;
-
-            // Assign the same DbContext instance to each repository
             _clubRepository = new Repository<Club>(_dbContext);
             _branchRepository = new Repository<Branch>(_dbContext);
             _tableRepository = new Repository<Table>(_dbContext);
@@ -33,26 +25,100 @@ namespace BilliardManagement.Repositories
         }
 
         /// <summary>
-        /// Commits all changes made in the current transaction.
+        /// Starts a new transaction.
         /// </summary>
-        /// <returns>The number of state entries written to the database.</returns>
+        public void CreateTransaction()
+        {
+            _transaction = _dbContext.Database.BeginTransaction();
+        }
+
+        /// <summary>
+        /// Starts a new transaction asynchronously.
+        /// </summary>
+        public async Task CreateTransactionAsync()
+        {
+            _transaction = await _dbContext.Database.BeginTransactionAsync();
+        }
+
+        /// <summary>
+        /// Commits the current transaction.
+        /// </summary>
+        public void Commit()
+        {
+            try
+            {
+                SaveChanges();
+                _transaction?.Commit();
+            }
+            catch
+            {
+                Rollback();
+                throw;
+            }
+            finally
+            {
+                _transaction?.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Commits the current transaction asynchronously.
+        /// </summary>
+        public async Task CommitAsync()
+        {
+            try
+            {
+                await SaveChangesAsync();
+                if (_transaction != null)
+                {
+                    await _transaction.CommitAsync();
+                }
+            }
+            catch
+            {
+                await RollbackAsync();
+                throw;
+            }
+            finally
+            {
+                if (_transaction != null)
+                {
+                    await _transaction.DisposeAsync();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Rolls back the current transaction.
+        /// </summary>
+        public void Rollback()
+        {
+            _transaction?.Rollback();
+            _transaction?.Dispose();
+        }
+
+        /// <summary>
+        /// Rolls back the current transaction asynchronously.
+        /// </summary>
+        public async Task RollbackAsync()
+        {
+            if (_transaction != null)
+            {
+                await _transaction.RollbackAsync();
+                await _transaction.DisposeAsync();
+            }
+        }
+
         public int SaveChanges()
         {
             return _dbContext.SaveChanges();
         }
 
-        /// <summary>
-        /// Asynchronously commits all changes made in the current transaction.
-        /// </summary>
-        /// <returns>A task that represents the asynchronous operation. The task result contains the number of state entries written to the database.</returns>
         public async Task<int> SaveChangesAsync()
         {
             return await _dbContext.SaveChangesAsync();
         }
 
-        /// <summary>
-        /// Releases all resources used by the current instance of the <see cref="UnitOfWork"/> class.
-        /// </summary>
         public void Dispose()
         {
             Dispose(true);
@@ -66,6 +132,7 @@ namespace BilliardManagement.Repositories
                 if (disposing)
                 {
                     _dbContext.Dispose();
+                    _transaction?.Dispose();
                 }
                 _disposed = true;
             }
