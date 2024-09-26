@@ -1,0 +1,56 @@
+@model IEnumerable<BilliardManagement.Data.Entities.Club>
+
+@{
+    ViewData["Title"] = "Index";
+}
+
+<h1>Clubs Index</h1>
+
+<p>
+    <a asp-action="Create">Create New</a>
+</p>
+<form asp-action="Index" method="get">
+    <div class="form-group">
+        <label for="searchName">Search by Name:</label>
+        <input type="text" class="form-control" id="searchName" name="searchName" value="@ViewBag.SearchName">
+    </div>
+    <button type="submit" class="btn btn-primary">Search</button>
+</form>
+<br />
+<table class="table">
+    <thead>
+        <tr>
+            <th>
+                @Html.DisplayNameFor(model => model.Name)
+            </th>
+            <th>
+                Logo
+            </th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+@foreach (var item in Model) {
+        <tr>
+            <td>
+                @Html.DisplayFor(modelItem => item.Name)
+            </td>
+            <td>
+                    @if (!String.IsNullOrWhiteSpace(item.SignedUrl))
+                    {
+                        <img width="80px" src="@item.SignedUrl" class="figure-img img-fluid rounded" alt="@item.SavedFileName">
+                    }
+                    else
+                    {
+                        <span>No Photo Available</span>
+                    }
+                </td>
+            <td>
+                <a asp-action="Edit" asp-route-id="@item.Id">Edit</a> |
+                <a asp-action="Details" asp-route-id="@item.Id">Details</a> |
+                <a asp-action="Delete" asp-route-id="@item.Id">Delete</a>
+            </td>
+        </tr>
+}
+    </tbody>
+</table>
