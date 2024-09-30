@@ -159,6 +159,7 @@ namespace BilliardManagement.Controllers
             }
             catch (KeyNotFoundException)
             {
+                // code error: 404
                 return NotFound();
             }
         }
